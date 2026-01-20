@@ -261,15 +261,15 @@ export default function UserManagementPage() {
                         <form onSubmit={handleManualAdd} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">{activeTab === 'student' ? 'Roll Number' : 'Employee ID'}</label>
-                                <input required value={newUser.userId} onChange={(e) => setNewUser({ ...newUser, userId: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg outline-none font-mono text-sm" placeholder={activeTab === 'student' ? 'e.g. 218W1A0542' : 'e.g. EMP001'} />
+                                <input required value={newUser.userId} onChange={(e) => setNewUser({ ...newUser, userId: e.target.value })} className="w-full p-2 text-slate-900 border border-slate-300 rounded-lg outline-none font-mono text-sm" placeholder={activeTab === 'student' ? 'e.g. 218W1A0542' : 'e.g. EMP001'} />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Full Name</label>
-                                <input required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg outline-none text-sm" placeholder="e.g. John Doe" />
+                                <input required value={newUser.name} onChange={(e) => setNewUser({ ...newUser, name: e.target.value })} className="w-full p-2 text-slate-900 border border-slate-300 rounded-lg outline-none text-sm" placeholder="e.g. John Doe" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Branch</label>
-                                <select value={newUser.branch} onChange={(e) => setNewUser({ ...newUser, branch: e.target.value })} className="w-full p-2 border border-slate-300 rounded-lg outline-none text-sm bg-white">
+                                <select value={newUser.branch} onChange={(e) => setNewUser({ ...newUser, branch: e.target.value })} className="w-full p-2 text-slate-900 border border-slate-300 rounded-lg outline-none text-sm bg-white">
                                     <option value="CSE">CSE</option>
                                     <option value="ECE">ECE</option>
                                     <option value="EEE">EEE</option>

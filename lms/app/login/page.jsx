@@ -20,7 +20,7 @@ export default function LoginPage() {
         setError('');
 
         try {
-            // CALL REAL API
+            // 1. Call the API
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -33,26 +33,32 @@ export default function LoginPage() {
             const data = await res.json();
 
             if (!res.ok || !data.success) {
-                // Show error from backend (e.g., "Invalid credentials")
                 setError(data.error || "Login failed");
                 setIsLoading(false);
                 return;
             }
 
-            // SUCCESS: Redirect based on Role from DB
-            const role = data.role; // 'admin', 'student', or 'faculty'
-            console.log(`Login Success! Role: ${role}`);
+            // --- 🔥 THE FIX STARTS HERE ---
+            // 2. Save User Details to LocalStorage BEFORE redirecting
+            // The API returns { success: true, role: '...', name: 'Kalyan Sir' }
+            localStorage.setItem('userName', data.name || 'Faculty Member');
+            localStorage.setItem('userId', formData.id);
+            localStorage.setItem('userRole', data.role);
+            // --- 🔥 FIX ENDS HERE ---
 
-            if (role === 'admin') {
+            console.log(`Login Success! Welcome ${data.name}`);
+
+            // 3. Redirect based on Role
+            if (data.role === 'admin') {
                 router.push('/admin/dashboard');
-            } else if (role === 'student') {
+            } else if (data.role === 'student') {
                 router.push('/student/dashboard');
             } else {
                 router.push('/faculty/dashboard');
             }
 
         } catch (err) {
-            console.error("Login Network Error:", err);
+            console.error("Login Error:", err);
             setError("Network error. Please try again.");
             setIsLoading(false);
         }

@@ -1,25 +1,28 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-    BookOpen, Code, Clock, Trash2, Plus,
-    ChevronDown, ChevronUp, Save, CheckCircle,
-    MonitorPlay, File, Loader2 // Added Loader Icon
+    BookOpen, Code, Trash2, Plus, ChevronDown, ChevronUp,
+    Save, CheckCircle, MonitorPlay, File, Loader2, Layout
 } from 'lucide-react';
 
 // --- CONSTANTS ---
-const MAX_SECTIONS = 5;
-const MAX_TOPICS_PER_SECTION = 10;
+const MAX_SECTIONS = 10;
+const MAX_TOPICS_PER_SECTION = 15;
 const COURSE_COLORS = [
     'bg-blue-600', 'bg-indigo-600', 'bg-purple-600',
     'bg-rose-600', 'bg-emerald-600', 'bg-orange-600'
 ];
 
 export default function CourseEditorPage() {
+    const router = useRouter();
+
     // --- STATE ---
     const [activeTab, setActiveTab] = useState('curriculum');
-    const [isSaving, setIsSaving] = useState(false); // NEW: Loading State
+    const [isSaving, setIsSaving] = useState(false);
 
+    // 1. Course Basics (Matches 'courses' table)
     const [basics, setBasics] = useState({
         title: 'Complete Data Structures & Algorithms',
         shortTitle: 'JAVA DSA',
@@ -27,6 +30,7 @@ export default function CourseEditorPage() {
         color: 'bg-blue-600'
     });
 
+    // 2. Sections Data (Matches 'sections', 'topics', 'quizzes', 'assignments' tables)
     const [sections, setSections] = useState([
         {
             id: 1,
@@ -45,15 +49,12 @@ export default function CourseEditorPage() {
     // --- HELPERS ---
     const getNextId = (arr) => arr.length > 0 ? Math.max(...arr.map(i => i.id)) + 1 : 1;
 
-    // --- SECTION HANDLERS ---
+    // --- SECTION ACTIONS ---
     const addSection = () => {
-        if (sections.length >= MAX_SECTIONS) {
-            alert(`Maximum ${MAX_SECTIONS} sections allowed.`);
-            return;
-        }
-        const newId = getNextId(sections);
+        if (sections.length >= MAX_SECTIONS) return alert(`Max ${MAX_SECTIONS} units allowed.`);
+
         setSections([...sections, {
-            id: newId,
+            id: getNextId(sections),
             title: `Unit ${sections.length + 1}: New Unit`,
             topics: [],
             quiz: { enabled: false, timeLimit: 30, retakes: 1, questions: [] },
@@ -67,36 +68,33 @@ export default function CourseEditorPage() {
         setSections(sections.map(s => s.id === id ? { ...s, title: val } : s));
     };
 
-    // --- TOPIC HANDLERS ---
+    // --- TOPIC ACTIONS ---
     const addTopic = (sectionId, type) => {
         setSections(sections.map(s => {
             if (s.id === sectionId) {
-                if (s.topics.length >= MAX_TOPICS_PER_SECTION) {
-                    alert(`Max ${MAX_TOPICS_PER_SECTION} topics allowed per section.`);
-                    return s;
-                }
+                if (s.topics.length >= MAX_TOPICS_PER_SECTION) return s;
                 return {
                     ...s,
-                    topics: [...s.topics, { id: Date.now(), title: '', type }]
+                    topics: [...s.topics, { id: Date.now(), title: '', type, url: '' }]
                 };
             }
             return s;
         }));
     };
 
-    const updateTopic = (sectionId, topicId, val) => {
+    const updateTopic = (sectionId, topicId, field, val) => {
         setSections(sections.map(s => {
             if (s.id === sectionId) {
                 return {
                     ...s,
-                    topics: s.topics.map(t => t.id === topicId ? { ...t, title: val } : t)
+                    topics: s.topics.map(t => t.id === topicId ? { ...t, [field]: val } : t)
                 };
             }
             return s;
         }));
     };
 
-    // --- SUB-COMPONENT UPDATERS ---
+    // --- QUIZ & ASSIGNMENT UPDATERS ---
     const updateSectionQuiz = (sectionId, newQuizData) => {
         setSections(sections.map(s => s.id === sectionId ? { ...s, quiz: newQuizData } : s));
     };
@@ -105,11 +103,19 @@ export default function CourseEditorPage() {
         setSections(sections.map(s => s.id === sectionId ? { ...s, assignments: newAssignments } : s));
     };
 
-    // --- 🔥 NEW: SAVE FUNCTION ---
+    // --- 🔥 API SAVE FUNCTION ---
     const handleSave = async () => {
-        // Basic Validation
         if (!basics.title || !basics.shortTitle) {
-            alert("Please enter a Course Title and Short Title (Thumbnail text)");
+            alert("Please enter a Full Title and a Logo Text (Short Title).");
+            return;
+        }
+
+        // 🔥 NEW: Get the logged-in Faculty ID
+        const instructorId = localStorage.getItem('userId');
+
+        // Optional safety check
+        if (!instructorId) {
+            alert("You appear to be logged out. Please log in again.");
             return;
         }
 
@@ -121,22 +127,22 @@ export default function CourseEditorPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     basics: basics,
-                    sections: sections
+                    sections: sections,
+                    instructorId: instructorId // 🔥 SEND IT HERE
                 }),
             });
 
             const data = await response.json();
 
             if (response.ok && data.success) {
-                alert(`✅ Course Saved Successfully! (ID: ${data.courseId})`);
-                // Optional: Redirect user
-                // window.location.href = '/dashboard';
+                alert("✅ Course Published Successfully!");
+                router.push('/faculty/dashboard'); // Redirect to dashboard
             } else {
-                alert(`❌ Error: ${data.error || "Unknown error occurred"}`);
+                alert(`❌ Error: ${data.error || "Failed to save."}`);
             }
         } catch (error) {
-            console.error("Network Error:", error);
-            alert("❌ Failed to connect to server. Check console.");
+            console.error("Save Error:", error);
+            alert("❌ Network Error. Check console.");
         } finally {
             setIsSaving(false);
         }
@@ -145,12 +151,12 @@ export default function CourseEditorPage() {
     return (
         <div className="min-h-screen bg-slate-50 pb-20 font-sans">
 
-            {/* --- HEADER --- */}
+            {/* --- HEADER & SMART THUMBNAIL --- */}
             <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
                 <div className="max-w-6xl mx-auto p-4 md:p-6">
                     <div className="flex flex-col lg:flex-row gap-8 items-start">
 
-                        {/* THUMBNAIL CARD */}
+                        {/* 1. THUMBNAIL CARD (Visual Editor) */}
                         <div className="group relative shrink-0 w-full lg:w-80 aspect-video rounded-2xl shadow-xl overflow-hidden transition-all hover:shadow-2xl">
                             <div className={`absolute inset-0 ${basics.color} transition-colors duration-500`}></div>
                             <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-white to-transparent"></div>
@@ -183,7 +189,7 @@ export default function CourseEditorPage() {
                             </div>
                         </div>
 
-                        {/* METADATA FORM */}
+                        {/* 2. COURSE DETAILS FORM */}
                         <div className="flex-1 w-full space-y-6">
                             <div>
                                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 block">Full Course Title</label>
@@ -206,7 +212,7 @@ export default function CourseEditorPage() {
                             </div>
                         </div>
 
-                        {/* SAVE BUTTON (Updated) */}
+                        {/* 3. SAVE BUTTON */}
                         <div className="flex flex-col gap-2">
                             <button
                                 onClick={handleSave}
@@ -228,20 +234,20 @@ export default function CourseEditorPage() {
                 </div>
             </header>
 
-            {/* --- TABS & CONTENT --- */}
+            {/* --- CONTENT TABS --- */}
             <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
 
-                {/* Tab Navigation */}
+                {/* Tab Buttons */}
                 <div className="flex gap-2 bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full md:w-fit mb-6 overflow-x-auto">
                     <TabButton id="curriculum" icon={BookOpen} label="Curriculum" activeTab={activeTab} setActiveTab={setActiveTab} />
                     <TabButton id="quizzes" icon={CheckCircle} label="Quizzes" activeTab={activeTab} setActiveTab={setActiveTab} />
                     <TabButton id="assignments" icon={Code} label="Assignments" activeTab={activeTab} setActiveTab={setActiveTab} />
                 </div>
 
-                {/* Tab Contents */}
+                {/* Tab Content Areas */}
                 <div className="space-y-6">
 
-                    {/* CURRICULUM TAB */}
+                    {/* 1. CURRICULUM EDITOR */}
                     {activeTab === 'curriculum' && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                             {sections.map((section, idx) => (
@@ -258,14 +264,23 @@ export default function CourseEditorPage() {
 
                                     <div className="p-4 space-y-3">
                                         {section.topics.map((topic, tIdx) => (
-                                            <div key={topic.id} className="flex items-center gap-3 pl-4 border-l-2 border-slate-100">
-                                                {topic.type === 'video' ? <MonitorPlay size={16} className="text-blue-500" /> : <File size={16} className="text-orange-500" />}
-                                                <input
-                                                    placeholder="Topic Title..."
-                                                    value={topic.title}
-                                                    onChange={(e) => updateTopic(section.id, topic.id, e.target.value)}
-                                                    className="flex-1 text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:border-blue-400 outline-none placeholder:text-slate-400"
-                                                />
+                                            <div key={topic.id} className="flex items-center gap-3 pl-4 border-l-2 border-slate-100 group">
+                                                {topic.type === 'video' ? <MonitorPlay size={16} className="text-blue-500 shrink-0" /> : <File size={16} className="text-orange-500 shrink-0" />}
+
+                                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                    <input
+                                                        placeholder="Topic Title (e.g. Introduction to React)"
+                                                        value={topic.title}
+                                                        onChange={(e) => updateTopic(section.id, topic.id, 'title', e.target.value)}
+                                                        className="text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:border-blue-400 outline-none"
+                                                    />
+                                                    <input
+                                                        placeholder={topic.type === 'video' ? "Video URL (YouTube/MP4)" : "File URL (PDF/Drive)"}
+                                                        value={topic.url}
+                                                        onChange={(e) => updateTopic(section.id, topic.id, 'url', e.target.value)}
+                                                        className="text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1.5 focus:border-blue-400 outline-none"
+                                                    />
+                                                </div>
                                             </div>
                                         ))}
 
@@ -275,23 +290,19 @@ export default function CourseEditorPage() {
                                                 <button onClick={() => addTopic(section.id, 'pdf')} className="text-xs font-bold text-orange-600 flex items-center gap-1 hover:bg-orange-50 px-3 py-1.5 rounded"><Plus size={14} /> Add Resource</button>
                                             </div>
                                         ) : (
-                                            <p className="text-xs text-red-500 text-center py-2 bg-red-50 rounded">Max 10 topics reached for this unit.</p>
+                                            <p className="text-xs text-red-500 text-center py-2 bg-red-50 rounded">Max topics reached.</p>
                                         )}
                                     </div>
                                 </div>
                             ))}
 
-                            {sections.length < MAX_SECTIONS ? (
-                                <button onClick={addSection} className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-colors">
-                                    + Add New Unit (Max 5)
-                                </button>
-                            ) : (
-                                <p className="text-center text-slate-400 text-sm font-medium">Maximum 5 Units Reached</p>
-                            )}
+                            <button onClick={addSection} className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-blue-500 hover:text-blue-600 transition-colors">
+                                + Add New Unit
+                            </button>
                         </div>
                     )}
 
-                    {/* QUIZZES TAB */}
+                    {/* 2. QUIZ EDITOR */}
                     {activeTab === 'quizzes' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                             {sections.map((section) => (
@@ -300,7 +311,7 @@ export default function CourseEditorPage() {
                         </div>
                     )}
 
-                    {/* ASSIGNMENTS TAB */}
+                    {/* 3. ASSIGNMENT EDITOR */}
                     {activeTab === 'assignments' && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4">
                             {sections.map((section) => (
@@ -315,15 +326,15 @@ export default function CourseEditorPage() {
     );
 }
 
-// --- SUB-COMPONENTS ---
+// --- SUB-COMPONENTS (Keep logic separate) ---
 
 function TabButton({ id, icon: Icon, label, activeTab, setActiveTab }) {
     return (
         <button
             onClick={() => setActiveTab(id)}
             className={`flex items-center gap-2 px-6 py-2.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${activeTab === id
-                    ? 'bg-slate-900 text-white shadow-md'
-                    : 'text-slate-500 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-500 hover:bg-slate-50'
                 }`}
         >
             <Icon size={18} /> {label}

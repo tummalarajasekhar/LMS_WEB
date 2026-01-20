@@ -7,7 +7,7 @@ export async function POST(req) {
 
     try {
         const body = await req.json();
-        const { basics, sections } = body;
+        const { basics, sections, instructorId } = body;
 
         console.log("Starting Transaction for Course:", basics.title);
 
@@ -17,10 +17,16 @@ export async function POST(req) {
         // --- STEP A: Insert Course ---
         // Note: We map camelCase (frontend) to snake_case (database)
         const courseRes = await client.query(
-            `INSERT INTO courses (title, short_title, description, color) 
-       VALUES ($1, $2, $3, $4) 
-       RETURNING id`,
-            [basics.title, basics.shortTitle, basics.description, basics.color]
+            `INSERT INTO courses (title, short_title, description, color, instructor_id) 
+             VALUES ($1, $2, $3, $4, $5) 
+             RETURNING id`,
+            [
+                basics.title,
+                basics.shortTitle,
+                basics.description,
+                basics.color,
+                instructorId || 'EMP001' // Fallback if missing
+            ]
         );
         const courseId = courseRes.rows[0].id;
         console.log(`Course Created: ID ${courseId}`);
